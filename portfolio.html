@@ -1,0 +1,624 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AKILAASH_OS // Mechatronics Engineer</title>
+<meta name="description" content="Akilaash G. — Aspiring Mechatronics Engineer. Robotics, automation, prototyping.">
+ 
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Bebas+Neue&family=Oxanium:wght@400;500;600;700&display=swap');
+ 
+  :root{
+    --bg: #050705;
+    --bg-panel: #0a1210;
+    --bg-panel-2: #0d1815;
+    --green: #39ff8a;
+    --green-dim: #1c7a45;
+    --cyan: #4be8ff;
+    --amber: #ffb400;
+    --text: #c9f7dd;
+    --text-dim: #5f8973;
+    --border: rgba(57,255,138,0.28);
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Bebas Neue', sans-serif;
+    --ui: 'Oxanium', sans-serif;
+  }
+ 
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+ 
+  ::selection{ background: var(--green); color: #04140a; }
+ 
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+ 
+  body.boot-lock{ overflow: hidden; height: 100vh; }
+ 
+  a{ color: var(--cyan); text-decoration: none; }
+ 
+  /* ---------- scanline / vignette overlay ---------- */
+  .crt-overlay{
+    pointer-events:none;
+    position:fixed; inset:0; z-index: 9990;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,0.14) 0px,
+        rgba(0,0,0,0.14) 1px,
+        transparent 2px,
+        transparent 3px
+      );
+    mix-blend-mode: overlay;
+    opacity: 0.5;
+  }
+  .vignette{
+    pointer-events:none;
+    position:fixed; inset:0; z-index: 9989;
+    box-shadow: inset 0 0 180px rgba(0,0,0,0.75);
+  }
+ 
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
+ 
+  /* ---------- BIOS BOOT SCREEN ---------- */
+  #bios{
+    position: fixed; inset: 0; z-index: 10000;
+    background: #000;
+    color: #3dff6e;
+    font-family: var(--mono);
+    padding: 6vh 6vw;
+    font-size: 14px;
+    white-space: pre-wrap;
+    cursor: pointer;
+  }
+  #bios .bios-lines{ max-width: 720px; }
+  #bios .bios-lines div{ opacity:0; animation: biosline 0.05s forwards; }
+  #bios .cursor-line{ display:inline-block; width:8px; height:14px; background:#3dff6e; animation: blink 1s steps(1) infinite; vertical-align: -2px; }
+  @keyframes biosline{ to{ opacity:1; } }
+  @keyframes blink{ 50%{ opacity:0; } }
+  #bios .skip-hint{ position:absolute; bottom: 5vh; left: 6vw; color:#1c7a45; font-size:12px; }
+  #bios.hide{ animation: biosOut 0.5s ease forwards; }
+  @keyframes biosOut{ to{ opacity:0; visibility:hidden; } }
+ 
+  /* ---------- NAVBAR ---------- */
+  header.osbar{
+    position: fixed; top:0; left:0; right:0; z-index: 500;
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 10px 22px;
+    background: rgba(6,12,9,0.85);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--ui);
+    font-size: 13px;
+  }
+  .os-brand{ display:flex; align-items:center; gap:8px; color: var(--green); font-weight:700; letter-spacing:1px; }
+  .os-brand .dot{ width:8px; height:8px; border-radius:50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse{ 50%{ opacity: 0.35; } }
+ 
+  nav.os-links{ display:flex; gap: 4px; }
+  nav.os-links a{
+    color: var(--text-dim);
+    font-family: var(--ui);
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    padding: 6px 12px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
+  }
+  nav.os-links a:hover, nav.os-links a:focus-visible{
+    color: var(--green);
+    border-color: var(--border);
+    background: rgba(57,255,138,0.06);
+  }
+ 
+  .os-status{ display:flex; align-items:center; gap:14px; color: var(--cyan); font-size:12px; }
+  .os-status .clock{ color: var(--amber); font-variant-numeric: tabular-nums; }
+  .os-status .sig{ display:flex; gap:3px; align-items:flex-end; }
+  .os-status .sig span{ width:3px; background: var(--green); display:inline-block; }
+  .os-status .sig span:nth-child(1){ height:4px; }
+  .os-status .sig span:nth-child(2){ height:7px; }
+  .os-status .sig span:nth-child(3){ height:10px; }
+  .os-status .sig span:nth-child(4){ height:13px; }
+ 
+  .nav-toggle{ display:none; background:none; border:1px solid var(--border); color:var(--green); font-family:var(--mono); padding:6px 10px; border-radius:3px; }
+ 
+  @media (max-width: 780px){
+    nav.os-links{ position:fixed; top:52px; left:0; right:0; background:#060c09; flex-direction:column; padding:10px; border-bottom:1px solid var(--border); display:none; }
+    nav.os-links.open{ display:flex; }
+    .nav-toggle{ display:inline-block; }
+  }
+ 
+  /* ---------- SECTION SHELL ---------- */
+  section{ padding: 110px 8vw 70px; max-width: 1180px; margin: 0 auto; }
+  .section-tag{
+    font-family: var(--ui); font-size: 12px; color: var(--amber);
+    letter-spacing: 3px; margin-bottom: 10px; display:flex; align-items:center; gap:10px;
+  }
+  .section-tag::before{ content:''; width:22px; height:1px; background: var(--amber); display:inline-block; }
+  h2.section-title{
+    font-family: var(--display);
+    font-size: clamp(2.2rem, 5vw, 3.4rem);
+    letter-spacing: 2px;
+    color: var(--text);
+    margin: 0 0 34px;
+  }
+  h2.section-title span{ color: var(--green); }
+ 
+  /* ---------- HERO ---------- */
+  #home{ min-height: 100vh; display:flex; align-items:center; padding-top: 90px; }
+  .hero-grid{ display:grid; grid-template-columns: 1fr; gap: 30px; width:100%; }
+ 
+  .term-window{
+    background: linear-gradient(180deg, var(--bg-panel), var(--bg-panel-2));
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 20px 60px -20px rgba(57,255,138,0.15);
+    overflow:hidden;
+  }
+  .term-titlebar{
+    display:flex; align-items:center; gap:8px;
+    padding: 9px 14px;
+    background: rgba(0,0,0,0.35);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--ui); font-size:12px; color: var(--text-dim);
+  }
+  .term-titlebar .tl{ width:11px; height:11px; border-radius:50%; }
+  .tl.r{ background:#ff5f56; } .tl.y{ background:#ffbd2e; } .tl.g{ background:#27c93f; }
+  .term-titlebar .path{ margin-left: 10px; }
+ 
+  .term-body{ padding: 34px clamp(18px, 4vw, 46px); }
+ 
+  .glitch-wrap{ position:relative; }
+  .glitch{
+    font-family: var(--display);
+    font-size: clamp(2.6rem, 9vw, 6.4rem);
+    letter-spacing: 3px;
+    color: var(--text);
+    position: relative;
+    line-height: 1;
+    margin: 0 0 6px;
+  }
+  .glitch::before, .glitch::after{
+    content: attr(data-text);
+    position:absolute; left:0; top:0; width:100%; height:100%;
+    background: var(--bg-panel);
+    overflow:hidden;
+  }
+  .glitch::before{ color: var(--cyan); left: 2px; text-shadow: -1px 0 var(--cyan); animation: glitchTop 4.5s infinite linear alternate-reverse; clip-path: inset(0 0 60% 0); }
+  .glitch::after{ color: var(--amber); left: -2px; text-shadow: 1px 0 var(--amber); animation: glitchBot 3.7s infinite linear alternate-reverse; clip-path: inset(60% 0 0 0); }
+  @keyframes glitchTop{ 0%{clip-path: inset(0 0 78% 0);} 20%{clip-path: inset(10% 0 60% 0);} 40%{clip-path: inset(40% 0 20% 0);} 60%{clip-path: inset(5% 0 70% 0);} 80%{clip-path: inset(25% 0 40% 0);} 100%{clip-path: inset(0 0 78% 0);} }
+  @keyframes glitchBot{ 0%{clip-path: inset(78% 0 0 0);} 20%{clip-path: inset(55% 0 15% 0);} 40%{clip-path: inset(30% 0 45% 0);} 60%{clip-path: inset(65% 0 5% 0);} 80%{clip-path: inset(40% 0 30% 0);} 100%{clip-path: inset(78% 0 0 0);} }
+ 
+  .role-line{ font-family: var(--ui); color: var(--green); font-size: clamp(0.95rem, 2vw, 1.15rem); letter-spacing: 1px; margin-bottom: 22px; }
+  .role-line .caret{ display:inline-block; width:9px; height:1.05em; background: var(--green); margin-left:2px; vertical-align:-3px; animation: blink 1s steps(1) infinite; }
+ 
+  #typed-objective{ color: var(--text); font-size: 0.98rem; max-width: 62ch; min-height: 5.4em; }
+  #typed-objective .prompt{ color: var(--cyan); }
+ 
+  .hero-actions{ display:flex; gap:14px; flex-wrap:wrap; margin-top: 28px; }
+  .btn{
+    font-family: var(--ui); font-size: 13px; letter-spacing: 1px;
+    padding: 11px 20px; border-radius: 4px; border: 1px solid var(--border);
+    color: var(--green); background: rgba(57,255,138,0.06); cursor:pointer;
+    transition: all .15s ease;
+  }
+  .btn:hover, .btn:focus-visible{ background: var(--green); color: #04140a; box-shadow: 0 0 22px rgba(57,255,138,0.4); }
+  .btn.alt{ color: var(--cyan); border-color: rgba(75,232,255,0.3); background: rgba(75,232,255,0.05); }
+  .btn.alt:hover{ background: var(--cyan); color:#04140a; box-shadow: 0 0 22px rgba(75,232,255,0.4); }
+ 
+  /* ---------- SKILLS ---------- */
+  .skills-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(230px,1fr)); gap: 16px; }
+  .skill-card{
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px;
+    position: relative;
+    overflow:hidden;
+  }
+  .skill-card::before{
+    content:''; position:absolute; inset:0; opacity:0;
+    background: linear-gradient(120deg, transparent, rgba(57,255,138,0.08), transparent);
+    transition: opacity .2s ease;
+  }
+  .skill-card:hover::before{ opacity:1; }
+  .skill-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .skill-name{ font-family: var(--ui); font-weight:600; color: var(--text); font-size: 14px; }
+  .skill-status{ font-size: 10px; letter-spacing:1px; color: var(--green); border:1px solid var(--green-dim); border-radius: 3px; padding: 2px 6px; }
+  .skill-status.cyan{ color: var(--cyan); border-color: rgba(75,232,255,0.4); }
+  .skill-status.amber{ color: var(--amber); border-color: rgba(255,180,0,0.4); }
+  .skill-desc{ font-size: 12.5px; color: var(--text-dim); }
+ 
+  /* ---------- TIMELINE ---------- */
+  .timeline{ position:relative; padding-left: 26px; }
+  .timeline::before{ content:''; position:absolute; left:6px; top:6px; bottom:6px; width:2px; background: linear-gradient(var(--green), var(--cyan), var(--amber)); opacity:0.4; }
+  .t-item{ position: relative; padding-bottom: 34px; }
+  .t-item:last-child{ padding-bottom:0; }
+  .t-dot{ position:absolute; left:-26px; top:4px; width:12px; height:12px; border-radius:50%; background: var(--bg); border:2px solid var(--green); box-shadow: 0 0 10px rgba(57,255,138,0.6); }
+  .t-item.cyan .t-dot{ border-color: var(--cyan); box-shadow: 0 0 10px rgba(75,232,255,0.6); }
+  .t-item.amber .t-dot{ border-color: var(--amber); box-shadow: 0 0 10px rgba(255,180,0,0.6); }
+  .t-range{ font-family: var(--ui); font-size:12px; color: var(--amber); letter-spacing:1px; }
+  .t-title{ font-family: var(--ui); font-size: 16px; font-weight:600; color: var(--text); margin: 4px 0; }
+  .t-sub{ font-size: 13px; color: var(--text-dim); }
+ 
+  /* ---------- PROJECTS ---------- */
+  .projects-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 20px; }
+  .proj-card{
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 22px;
+    display:flex; flex-direction:column; gap:12px;
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .proj-card:hover{ transform: translateY(-4px); box-shadow: 0 14px 34px -18px rgba(57,255,138,0.35); }
+  .proj-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .proj-title{ font-family: var(--ui); font-weight:700; font-size:16px; color: var(--green); }
+  .proj-tag{ font-size: 10px; letter-spacing:1px; color: var(--bg); background: var(--amber); padding: 3px 7px; border-radius:3px; white-space:nowrap; font-family:var(--ui); }
+  .proj-desc{ font-size: 13px; color: var(--text-dim); flex-grow:1; }
+  .proj-stack{ display:flex; flex-wrap:wrap; gap:6px; }
+  .proj-stack span{ font-size:11px; color: var(--cyan); border:1px solid rgba(75,232,255,0.3); padding:2px 8px; border-radius:10px; }
+ 
+  /* ---------- CONTACT / TERMINAL ---------- */
+  .contact-grid{ display:grid; grid-template-columns: 1fr; gap: 26px; }
+  .contact-info{ display:grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin-bottom: 4px; }
+  .info-chip{ border:1px solid var(--border); border-radius:6px; padding:12px 14px; background: var(--bg-panel); }
+  .info-chip .k{ font-family: var(--ui); font-size:11px; color: var(--text-dim); letter-spacing:1px; }
+  .info-chip .v{ color: var(--green); font-size: 13px; word-break: break-word; }
+ 
+  #console{
+    height: 320px;
+    overflow-y: auto;
+    padding: 16px 18px;
+    font-size: 13px;
+  }
+  #console .line{ margin-bottom: 6px; white-space:pre-wrap; }
+  #console .in{ color: var(--cyan); }
+  #console .out{ color: var(--text); }
+  #console .err{ color: #ff6b6b; }
+  #console .ok{ color: var(--green); }
+ 
+  .term-input-row{ display:flex; align-items:center; gap:8px; border-top: 1px solid var(--border); padding: 10px 18px; }
+  .term-input-row .p{ color: var(--green); }
+  #term-input{
+    flex:1; background:transparent; border:none; outline:none;
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+  }
+ 
+  footer{
+    text-align:center; padding: 34px 20px 46px;
+    font-family: var(--ui); font-size: 11px; letter-spacing:1px;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+  }
+  footer span{ color: var(--green); }
+</style>
+</head>
+<body class="boot-lock">
+ 
+<!-- ================= BIOS BOOT SCREEN ================= -->
+<div id="bios">
+  <div class="bios-lines" id="bios-lines"></div>
+  <div class="skip-hint">[ press any key / click to skip ]</div>
+</div>
+ 
+<div class="crt-overlay"></div>
+<div class="vignette"></div>
+ 
+<!-- ================= NAVBAR ================= -->
+<header class="osbar">
+  <div class="os-brand"><span class="dot"></span> AKILAASH_OS <span style="color:var(--text-dim); font-weight:400;">v2.9</span></div>
+  <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">≡ MENU</button>
+  <nav class="os-links" id="navLinks">
+    <a href="#home">HOME</a>
+    <a href="#skills">SKILLS</a>
+    <a href="#timeline">TIMELINE</a>
+    <a href="#projects">PROJECTS</a>
+    <a href="#contact">CONTACT</a>
+  </nav>
+  <div class="os-status">
+    <span class="sig"><span></span><span></span><span></span><span></span></span>
+    <span class="clock" id="clock">00:00:00</span>
+  </div>
+</header>
+ 
+<!-- ================= HERO ================= -->
+<section id="home">
+  <div class="hero-grid">
+    <div class="term-window">
+      <div class="term-titlebar">
+        <span class="tl r"></span><span class="tl y"></span><span class="tl g"></span>
+        <span class="path">guest@akilaash-os:~$ ./run_portfolio.sh</span>
+      </div>
+      <div class="term-body">
+        <div class="glitch-wrap">
+          <h1 class="glitch" data-text="AKILAASH G.">AKILAASH G.</h1>
+        </div>
+        <div class="role-line">&gt; ASPIRING MECHATRONICS ENGINEER<span class="caret"></span></div>
+        <div id="typed-objective"><span class="prompt">$</span> <span id="typed-text"></span><span class="caret" id="typed-caret"></span></div>
+        <div class="hero-actions">
+          <button class="btn" onclick="document.getElementById('projects').scrollIntoView()">./view_projects</button>
+          <button class="btn alt" onclick="document.getElementById('contact').scrollIntoView()">./open_contact</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+ 
+<!-- ================= SKILLS ================= -->
+<section id="skills">
+  <div class="section-tag">MODULES LOADED</div>
+  <h2 class="section-title">Core <span>Skills</span></h2>
+  <div class="skills-grid" id="skillsGrid">
+    <div class="skill-card"><div class="skill-top"><span class="skill-name">Python &amp; C</span><span class="skill-status">ACTIVE</span></div><div class="skill-desc">Scripting and firmware-level logic for automation and hardware control.</div></div>
+    <div class="skill-card"><div class="skill-top"><span class="skill-name">AutoCAD Drafting</span><span class="skill-status cyan">ONLINE</span></div><div class="skill-desc">Structural design and modular integration for mechanical concepts.</div></div>
+    <div class="skill-card"><div class="skill-top"><span class="skill-name">MySQL</span><span class="skill-status">ACTIVE</span></div><div class="skill-desc">Database management for structured, queryable project data.</div></div>
+    <div class="skill-card"><div class="skill-top"><span class="skill-name">Problem-Solving</span><span class="skill-status amber">CORE</span></div><div class="skill-desc">Troubleshooting mechanical-electrical integration issues hands-on.</div></div>
+    <div class="skill-card"><div class="skill-top"><span class="skill-name">Leadership</span><span class="skill-status amber">CORE</span></div><div class="skill-desc">Guiding teams through prototyping and iteration cycles.</div></div>
+    <div class="skill-card"><div class="skill-top"><span class="skill-name">Team Collaboration</span><span class="skill-status cyan">ONLINE</span></div><div class="skill-desc">Working across disciplines to ship functional prototypes.</div></div>
+  </div>
+</section>
+ 
+<!-- ================= TIMELINE ================= -->
+<section id="timeline">
+  <div class="section-tag">SYSTEM LOG</div>
+  <h2 class="section-title">Education &amp; <span>Timeline</span></h2>
+  <div class="timeline">
+    <div class="t-item cyan">
+      <div class="t-dot"></div>
+      <div class="t-range">2023 — 2025</div>
+      <div class="t-title">N.V.K.S. Senior Secondary School</div>
+      <div class="t-sub">Computer Science · 81.88%</div>
+    </div>
+    <div class="t-item">
+      <div class="t-dot"></div>
+      <div class="t-range">2025 — 2029 (in progress)</div>
+      <div class="t-title">K.S. Rangasamy College of Technology</div>
+      <div class="t-sub">Bachelor of Mechatronics Engineering · CGPA 8.75</div>
+    </div>
+    <div class="t-item amber">
+      <div class="t-dot"></div>
+      <div class="t-range">Certification</div>
+      <div class="t-title">NPTEL — Introduction to Internet of Things</div>
+      <div class="t-sub">Course completion certificate</div>
+    </div>
+    <div class="t-item amber">
+      <div class="t-dot"></div>
+      <div class="t-range">Hackathon</div>
+      <div class="t-title">Smart India Hackathon</div>
+      <div class="t-sub">Participated with project "D-Quick"</div>
+    </div>
+  </div>
+</section>
+ 
+<!-- ================= PROJECTS ================= -->
+<section id="projects">
+  <div class="section-tag">PROCESSES RUNNING</div>
+  <h2 class="section-title">Selected <span>Projects</span></h2>
+  <div class="projects-grid">
+    <div class="proj-card">
+      <div class="proj-head"><span class="proj-title">Cluster Drone Concept</span><span class="proj-tag">DESIGN</span></div>
+      <div class="proj-desc">A patent-oriented cluster drone concept exploring modular drone integration, built around coordinated multi-unit structural design.</div>
+      <div class="proj-stack"><span>AutoCAD</span><span>Structural Design</span><span>Modular Systems</span></div>
+    </div>
+    <div class="proj-card">
+      <div class="proj-head"><span class="proj-title">D-Quick</span><span class="proj-tag">HACKATHON</span></div>
+      <div class="proj-desc">Project entry built and presented during the Smart India Hackathon, developed under real competition constraints.</div>
+      <div class="proj-stack"><span>Team Collaboration</span><span>Rapid Prototyping</span></div>
+    </div>
+    <div class="proj-card">
+      <div class="proj-head"><span class="proj-title">IoT Fundamentals</span><span class="proj-tag">COURSEWORK</span></div>
+      <div class="proj-desc">NPTEL coursework on the Internet of Things, covering the fundamentals behind connected sensing and automation systems.</div>
+      <div class="proj-stack"><span>IoT</span><span>Automation</span></div>
+    </div>
+  </div>
+</section>
+ 
+<!-- ================= CONTACT ================= -->
+<section id="contact">
+  <div class="section-tag">OPEN CHANNEL</div>
+  <h2 class="section-title">Contact <span>Terminal</span></h2>
+ 
+  <div class="contact-grid">
+    <div class="contact-info">
+      <div class="info-chip"><div class="k">EMAIL</div><div class="v">akilaash2007@gmail.com</div></div>
+      <div class="info-chip"><div class="k">PHONE</div><div class="v">7339011938</div></div>
+      <div class="info-chip"><div class="k">LINKEDIN</div><div class="v"><a href="https://www.linkedin.com/in/akilaash-g-954bb0273/" target="_blank" rel="noopener">/in/akilaash-g-954bb0273</a></div></div>
+      <div class="info-chip"><div class="k">LOCATION</div><div class="v">Kanyakumari District, Tamil Nadu</div></div>
+    </div>
+ 
+    <div class="term-window">
+      <div class="term-titlebar">
+        <span class="tl r"></span><span class="tl y"></span><span class="tl g"></span>
+        <span class="path">guest@akilaash-os:~$ contact.sh</span>
+      </div>
+      <div id="console"></div>
+      <div class="term-input-row">
+        <span class="p">$</span>
+        <input id="term-input" type="text" autocomplete="off" spellcheck="false" placeholder="type 'help' and press enter">
+      </div>
+    </div>
+  </div>
+</section>
+ 
+<footer>
+  <span>AKILAASH_OS</span> · built with JetBrains Mono, Bebas Neue &amp; Oxanium · © 2026
+</footer>
+ 
+<script>
+(function(){
+  "use strict";
+ 
+  /* ---------------- BIOS BOOT SEQUENCE ---------------- */
+  var biosLines = [
+    "AKILAASH-OS BIOS v4.20.25",
+    "Copyright (C) Akilaash Systems",
+    "",
+    "CPU: Mechatronics-Core i9 @ 4.20GHz ......... OK",
+    "Detecting Memory .......................... 16384MB OK",
+    "Loading Skill Modules: PYTHON, C, AUTOCAD, MYSQL",
+    "Mounting /dev/projects ..................... OK",
+    "Checking Peripherals: KEYBOARD OK, MOUSE OK",
+    "Initializing Career Objective Engine ....... OK",
+    "",
+    "Booting AKILAASH_OS..."
+  ];
+ 
+  var biosEl = document.getElementById('bios');
+  var linesEl = document.getElementById('bios-lines');
+  var booted = false;
+ 
+  function finishBoot(){
+    if(booted) return;
+    booted = true;
+    biosEl.classList.add('hide');
+    document.body.classList.remove('boot-lock');
+    setTimeout(function(){ biosEl.style.display = 'none'; }, 550);
+    startTypedObjective();
+  }
+ 
+  function runBoot(){
+    var i = 0;
+    function next(){
+      if(i >= biosLines.length){
+        setTimeout(finishBoot, 500);
+        return;
+      }
+      var d = document.createElement('div');
+      d.textContent = biosLines[i];
+      linesEl.appendChild(d);
+      i++;
+      setTimeout(next, biosLines[i-1] === "" ? 90 : 130);
+    }
+    next();
+  }
+ 
+  biosEl.addEventListener('click', finishBoot);
+  window.addEventListener('keydown', finishBoot, { once:true });
+ 
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    finishBoot();
+  } else {
+    runBoot();
+  }
+ 
+  /* ---------------- LIVE CLOCK ---------------- */
+  var clockEl = document.getElementById('clock');
+  function tickClock(){
+    var now = new Date();
+    var hh = String(now.getHours()).padStart(2,'0');
+    var mm = String(now.getMinutes()).padStart(2,'0');
+    var ss = String(now.getSeconds()).padStart(2,'0');
+    clockEl.textContent = hh + ':' + mm + ':' + ss;
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+ 
+  /* ---------------- MOBILE NAV ---------------- */
+  var navToggle = document.getElementById('navToggle');
+  var navLinks = document.getElementById('navLinks');
+  navToggle.addEventListener('click', function(){
+    navLinks.classList.toggle('open');
+  });
+  navLinks.querySelectorAll('a').forEach(function(a){
+    a.addEventListener('click', function(){ navLinks.classList.remove('open'); });
+  });
+ 
+  /* ---------------- TYPED OBJECTIVE ---------------- */
+  var objective = "Passionate about robotics and automation, with hands-on experience in prototyping, troubleshooting, and mechanical-electrical integration — focused on practical, innovative engineering solutions.";
+  var typedTextEl = document.getElementById('typed-text');
+ 
+  function startTypedObjective(){
+    var idx = 0;
+    function typeChar(){
+      if(idx <= objective.length){
+        typedTextEl.textContent = objective.slice(0, idx);
+        idx++;
+        setTimeout(typeChar, 18);
+      }
+    }
+    typeChar();
+  }
+ 
+  /* ---------------- INTERACTIVE CONTACT TERMINAL ---------------- */
+  var consoleEl = document.getElementById('console');
+  var input = document.getElementById('term-input');
+ 
+  var responses = {
+    help: "Available commands: whoami, contact, email, phone, linkedin, location, languages, objective, clear",
+    whoami: "Akilaash G. — Aspiring Mechatronics Engineer, K.S. Rangasamy College of Technology.",
+    contact: "email: akilaash2007@gmail.com | phone: 7339011938 | linkedin: /in/akilaash-g-954bb0273",
+    email: "akilaash2007@gmail.com",
+    phone: "7339011938",
+    linkedin: "https://www.linkedin.com/in/akilaash-g-954bb0273/",
+    location: "Perinchakonam, Kanyakumari District, Tamil Nadu - 629177",
+    languages: "English, Tamil, Malayalam",
+    objective: objective,
+    "sudo hire-me": "permission granted. initiating handshake... reach out via email or LinkedIn above."
+  };
+ 
+  function printLine(text, cls){
+    var d = document.createElement('div');
+    d.className = 'line ' + (cls || 'out');
+    d.textContent = text;
+    consoleEl.appendChild(d);
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+  }
+ 
+  function bootConsole(){
+    printLine('AKILAASH_OS contact terminal — type "help" to see available commands.', 'ok');
+  }
+  bootConsole();
+ 
+  input.addEventListener('keydown', function(e){
+    if(e.key !== 'Enter') return;
+    var raw = input.value.trim();
+    if(raw === ''){ return; }
+    printLine('$ ' + raw, 'in');
+    var cmd = raw.toLowerCase();
+ 
+    if(cmd === 'clear'){
+      consoleEl.innerHTML = '';
+    } else if(responses.hasOwnProperty(cmd)){
+      printLine(responses[cmd], 'out');
+    } else {
+      printLine('command not found: ' + raw + ' — type "help"', 'err');
+    }
+    input.value = '';
+  });
+ 
+  document.getElementById('contact').addEventListener('click', function(){
+    input.focus();
+  });
+ 
+  /* ---------------- SCROLL REVEAL (skills) ---------------- */
+  var cards = document.querySelectorAll('.skill-card, .proj-card, .t-item');
+  cards.forEach(function(c){ c.style.opacity = 0; c.style.transform = 'translateY(14px)'; c.style.transition = 'opacity .5s ease, transform .5s ease'; });
+ 
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){
+        en.target.style.opacity = 1;
+        en.target.style.transform = 'translateY(0)';
+        io.unobserve(en.target);
+      }
+    });
+  }, { threshold: 0.15 });
+ 
+  cards.forEach(function(c){ io.observe(c); });
+ 
+})();
+</script>
+</body>
+</html>
+ 
